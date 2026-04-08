@@ -24,3 +24,13 @@ end
 @testset "isclifford($(split(string(gate))[1]))" for gate in (sT(5),)
   @test !isclifford(gate)
 end
+
+@testset "cliffordconjugate" begin
+  @test cliffordconjugate(P"III", sHadamard(1)) == P"III"
+  @test cliffordconjugate(P"III", sCNOT(1,3)) == P"III"
+  @test cliffordconjugate(P"III", sPhase(2)) == P"III"
+  
+  @test cliffordconjugate(P"XYZ", sHadamard(1)) == P"ZYZ"
+  @test cliffordconjugate(P"XYI", sCNOT(1,3)) == P"XYX"
+  @test cliffordconjugate(P"ZXZ", sPhase(2)) == P"ZYZ"
+end

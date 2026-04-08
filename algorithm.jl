@@ -12,10 +12,10 @@ function applygate(ψ::CAMPS, gate)
   if isclifford(gate)
     ψp = applyclifford(ψ, gate) 
   else
-    if islogical(gate, ψ.C)
+    if islogical(gate, ψ)
       ψp = applympo(ψ, gate)
     elseif anticommgenerator(gate, ψ.C)
-      ψp = worstcaseupdate!(ψ, gate) # Update both the Clifford and the MPS
+      ψp = addmagic(ψ, gate) # Update both the Clifford and the MPS
     end
   end
   return ψp
@@ -34,11 +34,39 @@ function applyclifford(ψ::CAMPS, gate)
   return CAMPS(ψ.mps, clifford)
 end
 
-"Check if a gate is a logical operator of a Clifford operator."
-function islogical(gate, cliff)
+"Given a Pauli string P and a Clifford gate C, return Pauli string C† P C"
+function cliffordconjugate(pauli, gate)
+  pauli_tab = Stabilizer([pauli])
+
+  if typeof(gate) <: AbstractTwoQubitOperator
+    q1 = gate.q1
+    q2 = gate.q2
+    gate_cliff = SparseGate(CliffordOperator(typeof(gate)), [q1,q2])
+  else
+    q = gate.q
+    gate_cliff = SparseGate(CliffordOperator(typeof(gate)), [q])
+  end
+
+  apply!(pauli_tab, gate_cliff)
+  return pauli_tab[1]
 end
 
-"Make an MPO by commuting a Pauli rotation through the CAMPS Clifford and apply it to the MPS."
+"Return the number of |0⟩ product states in the MPS"
+function nzeros(mps) 
+end
+
+"Check if a Pauli is a logical operator of a Clifford operator."
+function islogical(pauli, state)
+  cliff = state.C
+  n = length(state.mps)
+  k = nzeros(state.mps)
+  for gate in reverse(cliff)
+    pauli = cliffordconjugate(pauli, gate)
+  end 
+  return xbit(pauli)[n-k+1:end] == zeros(k)
+end
+
+"Make an MPO by commuting a Pauli rotation through the Clifford and apply it to the MPS."
 function applympo(ψ, rot)
 end
 
@@ -46,6 +74,6 @@ end
 function anticommgenerator(gate, cliff)
 end
 
-"Update the CAMPS Clifford and Y-rotate a |0⟩ in the MPS."
-function worstcaseupdate(ψ, gate)
+"Turn a |0⟩ to an |m⟩ in the product part of the MPS and update the Clifford with the optimal disentangler (Fux 2025)."
+function addmagic(ψ, gate)
 end
