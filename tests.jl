@@ -17,12 +17,11 @@ start = CAMPS(startmps, startcliff)
   end
 end
 
-@testset "isclifford($(split(string(gate))[1]))" for gate in (sHadamard(1), sPhase(2), sCNOT(5,6))
-  @test isclifford(gate)
-end
-
-@testset "isclifford($(split(string(gate))[1]))" for gate in (sT(5),)
-  @test !isclifford(gate)
+@testset "isclifford" begin
+  @test isclifford(sHadamard(1))
+  @test isclifford(sCNOT(2,5))
+  @test isclifford(sPhase(6))
+  @test !isclifford(sT(5))
 end
 
 @testset "cliffordconjugate" begin
@@ -33,4 +32,27 @@ end
   @test cliffordconjugate(P"XYZ", sHadamard(1)) == P"ZYZ"
   @test cliffordconjugate(P"XYI", sCNOT(1,3)) == P"XYX"
   @test cliffordconjugate(P"ZXZ", sPhase(2)) == P"ZYZ"
+end
+
+@testset "nzeros" begin
+  ψ = deepcopy(startmps)
+  @test nzeros(ψ) == N
+
+  ψ = apply(op("H", sites[1]), ψ)
+  @test nzeros(ψ) == N-1
+
+  ψ = apply(op("H", sites[1]), ψ)
+  @test nzeros(ψ) == N
+
+  ψ = apply(op("CNOT", sites[1], sites[3]), ψ)
+  @test nzeros(ψ) == N
+
+  ψ = apply(op("H", sites[1]), ψ)
+  @test nzeros(ψ) == N-1
+
+  ψ = apply(op("CNOT", sites[1], sites[3]), ψ)
+  @test nzeros(ψ) == N-2
+  
+   ψ = apply(op("X", sites[N]), ψ)
+  @test nzeros(ψ) == N-3
 end

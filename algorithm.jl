@@ -52,10 +52,21 @@ function cliffordconjugate(pauli, gate)
 end
 
 "Return the number of |0⟩ product states in the MPS"
-function nzeros(mps) 
+function nzeros(mps)
+  workmps = copy(mps)
+  n = 0
+  for i in eachindex(mps)
+    orthogonalize!(workmps, i)
+    t = workmps[i]
+    site = siteind(workmps, i)
+    densitymtx = t * dag(prime(t, site))
+    densitymtx₀₀ = densitymtx[site => 1, prime(site) => 1]
+    (densitymtx₀₀ ≈ 1) && (n += 1)
+  end
+  return n
 end
 
-"Check if a Pauli is a logical operator of a Clifford operator."
+"Check if a Pauli is a logical operator of CAMPS Clifford."
 function islogical(pauli, state)
   cliff = state.C
   n = length(state.mps)
