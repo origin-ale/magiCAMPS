@@ -184,22 +184,41 @@ end
   @test paulinature(3, Cid, P"ZZZ") == log
 end
 
-@testset "swapqubits!" begin
+@testset "swapqubits" begin
   C = one(CliffordOperator, 3)
 
-  @test swapqubits!(C, P"XYZ", 1, 3) == P"ZYX"
-  @test C == C"IIX IXI XII IIZ IZI ZII"
+  @test swapqubits(P"XYZ", 1, 3)[1] == P"ZYX"
 
-  @test swapqubits!(C, P"IIX", 2, 3) == P"IXI"
-  @test C == C"IXI IIX XII IZI IIZ ZII"
+  @test swapqubits(P"IIX", 2, 3)[1] == P"IXI"
 end
 
-@testset "reducetoX!" begin
+@testset "reducetoX" begin
   C = one(CliffordOperator, 3)
-
-  @test reducetoX!(C, P"XYZ", 2) == P"XXZ"
-  @test C == C"XII -IYI IIX ZII IZI IIZ"
-
-  @test reducetoX!(C, P"YYY", 1) == P"XYY"
-  @test C == C"-YII -IYI IIX ZII IZI IIZ"
+  reduced, phase = reducetoX(P"XYZ", 2)
+  @test reduced == P"XXZ"
+  apply!(C, phase)
+  @test C == C"XII IYI IIX ZII IZI IIZ" # apply! for Cliffords ignores phase
+  
+  C = one(CliffordOperator, 3)
+  reduced, phase = reducetoX(P"YYY", 1)
+  @test reduced == P"XYY"
+  apply!(C, phase)
+  @test C == C"YII IXI IIX ZII IZI IIZ"
 end
+
+@testset "build_D" begin
+  tCX = tCNOT
+  tCY = (tId1 ⊗ tPhase) * tCNOT * inv(tId1 ⊗ tPhase)
+  tCZ = (tId1 ⊗ tHadamard) * tCNOT * (tId1 ⊗ tHadamard)
+
+  test_D = one(CliffordOperator, 5)
+  apply!(test_D, tCY, [3,1])
+  apply!(test_D, tCX, [3,2])
+  apply!(test_D, tCZ, [3,4])
+  apply!(test_D, tCX, [3,5])
+  @test build_D(P"YXXZX", 3) == test_D
+end
+
+# @testset "disentangler" begin
+#   disentangler(1, C"IXI XII IIX IZI ZII IIZ", P"YXI")
+# end
