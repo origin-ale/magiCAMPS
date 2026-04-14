@@ -183,3 +183,23 @@ end
   @test paulinature(3, Cid, P"III") == trv
   @test paulinature(3, Cid, P"ZZZ") == log
 end
+
+@testset "swapqubits!" begin
+  C = one(CliffordOperator, 3)
+
+  @test swapqubits!(C, P"XYZ", 1, 3) == P"ZYX"
+  @test C == C"IIX IXI XII IIZ IZI ZII"
+
+  @test swapqubits!(C, P"IIX", 2, 3) == P"IXI"
+  @test C == C"IXI IIX XII IZI IIZ ZII"
+end
+
+@testset "reducetoX!" begin
+  C = one(CliffordOperator, 3)
+
+  @test reducetoX!(C, P"XYZ", 2) == P"XXZ"
+  @test C == C"XII -IYI IIX ZII IZI IIZ"
+
+  @test reducetoX!(C, P"YYY", 1) == P"XYY"
+  @test C == C"-YII -IYI IIX ZII IZI IIZ"
+end

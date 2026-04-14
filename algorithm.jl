@@ -25,3 +25,56 @@ function apply(P::PauliOperator, C::CliffordOperator)
   apply!(Stabilizer(P_tableau), C)
   return P_tableau[1]
 end
+
+function disentangler(k::Integer, C::CliffordOperator, P::PauliOperator)
+  Q = apply(P, C)
+  i = findfirstfreeXY(Q, k)
+  if i != k+1
+    Q = swapqubits!(C, Q, i, k+1) # C modified as a side effect TODO: clean up
+    i = k+1
+  end
+  if zbit(Q)[i]
+    Q = reducetoX!(C, Q, i) # C modified as a side effect TODO: clean up
+  end
+  return build_Ddag(Q, i)
+end
+
+function swapqubits!(C::CliffordOperator, P::PauliOperator, i::Integer, j::Integer)
+  apply!(C, tSWAP, [i,j])
+  swapij = one(CliffordOperator, length(P))
+  apply!(swapij, tSWAP, [i,j])
+  return apply(P, swapij)
+end
+
+function reducetoX!(C::CliffordOperator, P::PauliOperator, i::Integer)
+  apply!(C, tPhase*tPhase*tPhase, [i]) # Use 3 phase gates s.t. Y -> X instead of -X
+  phasei = one(CliffordOperator, length(P))
+  apply!(phasei, tPhase, [i])
+  apply!(phasei, tPhase, [i])
+  apply!(phasei, tPhase, [i])
+  return apply(P, phasei)
+end
+
+findfirstfreeXY(P::PauliOperator, k::Integer) = findfirst(xbit(P)[k+1:end]) + k
+
+function build_Ddag(Q::PauliOperator, i::Integer)
+  tCX = tCNOT
+  tCY = (tId1 ⊗ tPhase) * tCNOT * inv(tId1 ⊗ tPhase)
+  tCZ = (tId1 ⊗ tHadamard) * tCNOT * (tId1 ⊗ tHadamard)
+
+  Ddag = one(CliffordOperator, length(Q))
+
+  for j in eachindex(Q)
+    if j != i
+      if Q[j] == (true, false) # X
+        apply!(Ddag, tCX, [i, j])
+      elseif Q[j] == (true, true) # Y
+        apply!(Ddag, tCY, [i, j])
+      elseif Q[j] == (false, true) # Z
+        apply!(Ddag, tCZ, [i, j])
+      end
+    end
+  end
+  Ddag = inv(Ddag)
+  return Ddag
+end
