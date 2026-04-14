@@ -219,6 +219,31 @@ end
   @test build_D(P"YXXZX", 3) == test_D
 end
 
-# @testset "disentangler" begin
-#   disentangler(1, C"IXI XII IIX IZI ZII IIZ", P"YXI")
-# end
+@testset "disentangler" begin
+  tCX = tCNOT
+  tCY = (tId1 ⊗ tPhase) * tCNOT * inv(tId1 ⊗ tPhase)
+  tCZ = (tId1 ⊗ tHadamard) * tCNOT * (tId1 ⊗ tHadamard)
+
+  Dtest = one(CliffordOperator, 3)
+  apply!(Dtest, tCY, [2,1])
+  C = C"IXI XII IIX IZI ZII IIZ"
+  P = P"XYI"
+  @assert paulinature(1, C, P) == :disentanglable
+  @test disentangler(1, C, P) == Dtest
+  
+  Dtest = one(CliffordOperator, 3)
+  apply!(Dtest, tPhase, [2]) # QuantumClifford's apply!(CliffordOperator, CliffordOperator) ignores phases
+  apply!(Dtest, tCY, [2,1])
+  C = C"IXI XII IIX IZI ZII IIZ"
+  P = P"YYI"
+  @assert paulinature(1, C, P) == :disentanglable
+  @test disentangler(1, C, P) == Dtest
+
+  Dtest = one(CliffordOperator, 3)
+  apply!(Dtest, tSWAP,[2,3])
+  apply!(Dtest, tCY, [2,1])
+  C = C"IXI XII IIX IZI ZII IIZ"
+  P = P"IYX"
+  @assert paulinature(1, C, P) == :disentanglable
+  @test disentangler(1, C, P) == Dtest
+end

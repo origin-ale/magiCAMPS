@@ -29,21 +29,21 @@ end
 function disentangler(k::Integer, C::CliffordOperator, P::PauliOperator)
   Q = apply(P, C)
   i = findfirstfreeXY(Q, k)
-  D = one(CliffordOperator, length(Q))
+  Dtot = one(CliffordOperator, length(Q))
 
   if i != k+1
     Q, swap = swapqubits(Q, i, k+1)
-    apply!(D, swap)
+    apply!(Dtot, swap)
     i = k+1
   end
   if zbit(Q)[i]
     Q, phase = reducetoX(Q, i)
-    apply!(D, phase)
+    apply!(Dtot, phase)
   end
   Dmain = build_D(Q, i)
-  apply!(D, Dmain)
+  apply!(Dtot, Dmain)
 
-  return D
+  return Dtot
 end
 
 function swapqubits(P::PauliOperator, i::Integer, j::Integer)
