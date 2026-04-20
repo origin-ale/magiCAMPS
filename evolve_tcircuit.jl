@@ -26,6 +26,7 @@ function evolve_tcircuit(ψ::CAMPS, t::Int; showprogress = false)
   return ψ, k
 end
 
+"Turn the (k+1)th qubit from |0⟩ to the Liu and Clark (2025) magic state"
 function addmagicstate!(ψ::CAMPS, k::Integer)
   magifier_os = OpSum()
   magifier_os += cos(π/8), "Id", k+1
