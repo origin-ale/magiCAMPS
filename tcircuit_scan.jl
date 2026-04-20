@@ -6,6 +6,7 @@ using QuantumClifford
 using ITensors, ITensorMPS
 using ProgressMeter
 using Plots
+using LaTeXStrings
 
 Ns = length(ARGS) >= 1 ? parse.(Int, split(ARGS[1], ",")) : [12, 16, 24]
 n_samples = length(ARGS) >= 2 ? parse(Int, ARGS[2]) : 50
@@ -56,18 +57,20 @@ end
 xs = collect(fractions)
 colors = reverse(cgrad(:viridis, length(Ns), categorical = true))
 
-p1 = plot(xlabel = "t/N", ylabel = "S_E / N",
+p1 = plot(xlabel = L"t/N", ylabel = L"S_E / N",
           title = "Entanglement entropy vs t/N", legend = :topleft, dpi = 300)
 for (i, N) in enumerate(Ns)
 	plot!(p1, xs, results_ee[N], label = "N=$N", marker = :circle, color = colors[i])
 end
 savefig(p1, "avg_ee.png")
+display(p1)
 
-p2 = plot(xlabel = "t/N", ylabel = "M_2 / N",
+p2 = plot(xlabel = L"t/N", ylabel = L"\mathcal{M}_2 / N",
           title = "Rényi stabilizer 2-entropy vs t/N", legend = :topleft, dpi = 300)
 for (i, N) in enumerate(Ns)
 	plot!(p2, xs, results_sre[N], label = "N=$N", marker = :circle, color = colors[i])
 end
 savefig(p2, "avg_sre.png")
+display(p2)
 
 println("Saved plots to avg_ee.png and avg_sre.png")
