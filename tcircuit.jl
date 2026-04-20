@@ -22,5 +22,5 @@ print("Final MPS:")
 println(ψ_evo.mps)
 avg_ee = maximum(eEntropys!(ψ_evo.mps))/N
 println("Avg entanglement entropy $(avg_ee)")
-avg_sre = sEntropy(ψ_evo.mps, N^2)
+avg_sre = sEntropy(ψ_evo.mps, N^2; α =2)
 println("Avg 2-SRE $(avg_sre)")

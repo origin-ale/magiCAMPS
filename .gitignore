@@ -1,3 +1,4 @@
 dmrgCliffordMPS
 .vscode
 setup_env.jl
+*.png
