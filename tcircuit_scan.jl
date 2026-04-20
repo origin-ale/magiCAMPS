@@ -46,12 +46,21 @@ for N in Ns
 
 		push!(ee_vals, avg_ee)
 		push!(sre_vals, avg_sre)
-
-		# println("  avg EE = $avg_ee, avg 2-SRE = $avg_sre")
 	end
 
 	results_ee[N] = ee_vals
 	results_sre[N] = sre_vals
+end
+
+open("results.dat", "w") do io
+	for (i, N) in enumerate(Ns)
+		println(io, "# N = $N")
+		println(io, "# t/N avg_EE avg_SRE")
+		for (j, f) in enumerate(fractions)
+			println(io, "$f $(results_ee[N][j]) $(results_sre[N][j])")
+		end
+		i < length(Ns) && print(io, "\n\n")
+	end
 end
 
 xs = collect(fractions)
@@ -73,4 +82,4 @@ end
 savefig(p2, "avg_sre.png")
 display(p2)
 
-println("Saved plots to avg_ee.png and avg_sre.png")
+println("Saved plots to avg_ee.png and avg_sre.png, data to results.dat")
