@@ -14,55 +14,59 @@ fractions = 0.1:0.1:1.1
 results_ee = Dict{Int, Vector{Float64}}()
 results_sre = Dict{Int, Vector{Float64}}()
 
+generate_showvalues(toN, sample) = () -> [("t/N",toN), ("sample", sample)]
+
 for N in Ns
-    xbits = fill(false, N)
-    zbits = fill(false, N)
-    zbits[1] = true
-    global Z₁ = PauliOperator(0x0, xbits, zbits)
-    global T₁ = PauliSum(QOp(:T), N, 1)
+	xbits = fill(false, N)
+	zbits = fill(false, N)
+	zbits[1] = true
+	global Z₁ = PauliOperator(0x0, xbits, zbits)
+	global T₁ = PauliSum(QOp(:T), N, 1)
 
-    ee_vals = Float64[]
-    sre_vals = Float64[]
+	ee_vals = Float64[]
+	sre_vals = Float64[]
 
-    for f in fractions
-        t = round(Int, f * N)
-        println("N=$N, t=$t (t/N=$(round(f, digits=2))), averaging over $n_samples samples")
+	progressbar = Progress(length(fractions)*n_samples; desc = "N=$N")
+	for f in fractions
+		t = round(Int, f * N)
 
-        ee_sum = 0.0
-        sre_sum = 0.0
-        for _ in 1:n_samples
-            ψ = CAMPS(N)
-            ψ_evo, k = evolve_tcircuit(ψ, t)
+		ee_sum = 0.0
+		sre_sum = 0.0
+		for sample in 1:n_samples
+			ψ = CAMPS(N)
+			ψ_evo, k = evolve_tcircuit(ψ, t)
 
-            ee_sum += maximum(eEntropys!(ψ_evo.mps)) / N
-            sre_sum += sEntropy(ψ_evo.mps, N^2; α =2) / N
-        end
-        avg_ee = ee_sum / n_samples
-        avg_sre = sre_sum / n_samples
+			ee_sum += maximum(eEntropys!(ψ_evo.mps)) / N
+			sre_sum += sEntropy(ψ_evo.mps, N^2; α =2) / N
+			next!(progressbar, showvalues=generate_showvalues(f, sample))
+		end
+		avg_ee = ee_sum / n_samples
+		avg_sre = sre_sum / n_samples
 
-        push!(ee_vals, avg_ee)
-        push!(sre_vals, avg_sre)
+		push!(ee_vals, avg_ee)
+		push!(sre_vals, avg_sre)
 
-        println("  avg EE = $avg_ee, avg 2-SRE = $avg_sre")
-    end
+		# println("  avg EE = $avg_ee, avg 2-SRE = $avg_sre")
+	end
 
-    results_ee[N] = ee_vals
-    results_sre[N] = sre_vals
+	results_ee[N] = ee_vals
+	results_sre[N] = sre_vals
 end
 
 xs = collect(fractions)
+colors = reverse(cgrad(:viridis, length(Ns), categorical = true))
 
-p1 = plot(xlabel = "t/N", ylabel = "Average entanglement entropy",
-          title = "Average EE vs t/N", legend = :topleft)
-for N in Ns
-    plot!(p1, xs, results_ee[N], label = "N=$N", marker = :circle)
+p1 = plot(xlabel = "t/N", ylabel = "S_E / N",
+          title = "Entanglement entropy vs t/N", legend = :topleft, dpi = 300)
+for (i, N) in enumerate(Ns)
+	plot!(p1, xs, results_ee[N], label = "N=$N", marker = :circle, color = colors[i])
 end
 savefig(p1, "avg_ee.png")
 
-p2 = plot(xlabel = "t/N", ylabel = "Average 2-SRE",
-          title = "Average 2-SRE vs t/N", legend = :topleft)
-for N in Ns
-    plot!(p2, xs, results_sre[N], label = "N=$N", marker = :circle)
+p2 = plot(xlabel = "t/N", ylabel = "M_2 / N",
+          title = "Rényi stabilizer 2-entropy vs t/N", legend = :topleft, dpi = 300)
+for (i, N) in enumerate(Ns)
+	plot!(p2, xs, results_sre[N], label = "N=$N", marker = :circle, color = colors[i])
 end
 savefig(p2, "avg_sre.png")
 

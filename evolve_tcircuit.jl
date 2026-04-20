@@ -3,9 +3,10 @@ using QuantumClifford
 using ITensors, ITensorMPS
 using ProgressMeter
 
-function evolve_tcircuit(ψ::CAMPS, t::Int)
+function evolve_tcircuit(ψ::CAMPS, t::Int; showprogress = false)
   k = 0
-  @showprogress desc = "Evolving…" for s in 1:t
+  progressbar = Progress(t; desc = "Evolving…", enabled = showprogress)
+  for s in 1:t
     applyQOp!(ψ, QOp(:randCliffCircuit))
 
     C = inv(ψ.Cdag)
@@ -17,8 +18,10 @@ function evolve_tcircuit(ψ::CAMPS, t::Int)
     elseif nature == :logical
       applyGate!(ψ, T₁)
     elseif nature == :trivial
+      next!(progressbar)
       continue
     end
+    next!(progressbar)
   end
   return ψ, k
 end
