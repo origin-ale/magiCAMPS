@@ -3,20 +3,30 @@ using QuantumClifford
 using ITensors, ITensorMPS
 using ProgressMeter
 
-function evolve_tcircuit(ψ::CAMPS, t::Int; showprogress = false)
+function evolve_deepcliffords(ψ::CAMPS,
+                              t::Int,
+                              paulistrings,
+                              phases;
+                              showprogress = false)
   k = 0
   progressbar = Progress(t; desc = "Evolving…", enabled = showprogress)
   for s in 1:t
     applyQOp!(ψ, QOp(:randCliffCircuit))
 
+    P = paulistrings[s]
+    ϕ = phases[s]
+    N = length(ψ)
+    I = PauliOperator(0x0, fill(false,N), fill(false,N))
     C = inv(ψ.Cdag)
-    nature = paulinature(k, C, Z₁)
+
+    nature = paulinature(k, C, P)
     if nature == :disentanglable
-      ψ.Cdag *= inv(disentangler(k, C, Z₁))
-      addmagicstate!(ψ, k)
+      ψ.Cdag *= inv(disentangler(k, C, P))
+      addmagicstate!(ψ, k, ϕ)
       k += 1
     elseif nature == :logical
-      applyGate!(ψ, T₁)
+      R = PauliSum([cos(ϕ), sin(ϕ)], Stabilizer([I,P]))
+      applyGate!(ψ, R)
     elseif nature == :trivial
       next!(progressbar)
       continue
@@ -27,10 +37,10 @@ function evolve_tcircuit(ψ::CAMPS, t::Int; showprogress = false)
 end
 
 "Turn the (k+1)th qubit from |0⟩ to the Liu and Clark (2025) magic state"
-function addmagicstate!(ψ::CAMPS, k::Integer)
+function addmagicstate!(ψ::CAMPS, k::Integer, phase::Real)
   magifier_os = OpSum()
-  magifier_os += cos(π/8), "Id", k+1
-  magifier_os += -im * sin(π/8), "X", k+1
+  magifier_os += cos(phase), "Id", k+1
+  magifier_os += -im * sin(phase), "X", k+1
   sites = siteinds(ψ.mps)
   magifier = MPO(magifier_os, sites)
   ψ.mps = ITensors.apply(magifier, ψ.mps)

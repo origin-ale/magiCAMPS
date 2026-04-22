@@ -1,7 +1,6 @@
-include("algorithm.jl")
-include("evolve_tcircuit.jl")
-
+using DisentangleCAMPS
 using CliffordMPS
+
 using QuantumClifford
 using ITensors, ITensorMPS
 using ProgressMeter
@@ -18,24 +17,21 @@ results_sre = Dict{Int, Vector{Float64}}()
 generate_showvalues(toN, sample) = () -> [("t/N",toN), ("sample", sample)]
 
 for N in Ns
-	xbits = fill(false, N)
-	zbits = fill(false, N)
-	zbits[1] = true
-	global Z₁ = PauliOperator(0x0, xbits, zbits)
-	global T₁ = PauliSum(QOp(:T), N, 1)
-
 	ee_vals = Float64[]
 	sre_vals = Float64[]
 
 	progressbar = Progress(length(fractions)*n_samples; desc = "N=$N")
 	for f in fractions
 		t = round(Int, f * N)
-
 		ee_sum = 0.0
 		sre_sum = 0.0
+
 		for sample in 1:n_samples
 			ψ = CAMPS(N)
-			ψ_evo, k = evolve_tcircuit(ψ, t)
+      paulistrings = [PauliOperator(0x0, rand(Bool,N), rand(Bool,N)) for _ in 1:t]
+      phases = 2π*rand(Float64, (t,))
+
+			ψ_evo, k = evolve_deepcliffords(ψ, t, paulistrings, phases)
 
 			ee_sum += maximum(eEntropys!(ψ_evo.mps)) / N
 			sre_sum += sEntropy(ψ_evo.mps, N^2; α =2) / N
@@ -52,7 +48,7 @@ for N in Ns
 	results_sre[N] = sre_vals
 end
 
-open("results.dat", "w") do io
+open("output/gen_results.dat", "w") do io
 	for (i, N) in enumerate(Ns)
 		println(io, "# N = $N")
 		println(io, "# t/N avg_EE avg_SRE")
@@ -67,19 +63,17 @@ xs = collect(fractions)
 colors = reverse(cgrad(:viridis, length(Ns), categorical = true))
 
 p1 = plot(xlabel = L"t/N", ylabel = L"S_E / N",
-          title = "Entanglement entropy vs t/N", legend = :topleft, dpi = 300)
+          title = L"Entanglement vs n. of $R_P (\theta)$", legend = :topleft, dpi = 300)
 for (i, N) in enumerate(Ns)
 	plot!(p1, xs, results_ee[N], label = "N=$N", marker = :circle, color = colors[i])
 end
-savefig(p1, "avg_ee.png")
-display(p1)
+savefig(p1, "output/gen_avg_ee.png")
 
 p2 = plot(xlabel = L"t/N", ylabel = L"\mathcal{M}_2 / N",
-          title = "Rényi stabilizer 2-entropy vs t/N", legend = :topleft, dpi = 300)
+          title = L"Magic vs n. of $R_P (\theta)$", legend = :topleft, dpi = 300)
 for (i, N) in enumerate(Ns)
 	plot!(p2, xs, results_sre[N], label = "N=$N", marker = :circle, color = colors[i])
 end
-savefig(p2, "avg_sre.png")
-display(p2)
+savefig(p2, "output/gen_avg_sre.png")
 
-println("Saved plots to avg_ee.png and avg_sre.png, data to results.dat")
+println("Saved plots to gen_avg_ee.png and gen_avg_sre.png, data to gen_results.dat")

@@ -21,12 +21,13 @@ function paulinature(k::Integer, C::CliffordOperator, P::PauliOperator)
   end
 end
 
-"Append a Clifford gate op acting on the given sites to a Clifford circuit operator C."
-function QuantumClifford.apply!(C::CliffordOperator,
-op::CliffordOperator, sites::AbstractArray{Int,1})
-  apply!(Stabilizer(C.tab), op, sites)
-  return nothing
-end
+# === OVERWRITES CliffordMPS ===
+# "Append a Clifford gate op acting on the given sites to a Clifford circuit operator C."
+# function QuantumClifford.apply!(C::CliffordOperator,
+# op::CliffordOperator, sites::AbstractArray{Int,1})
+#   apply!(Stabilizer(C.tab), op, sites)
+#   return nothing
+# end
 
 "Map a Pauli string P through a Clifford operator C, ie. compute C^†PC.\
 Warning: not an in-place method!"

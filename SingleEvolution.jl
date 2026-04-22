@@ -1,7 +1,6 @@
-include("algorithm.jl")
-include("evolve_gencircuit.jl")
-
+using DisentangleCAMPS
 using CliffordMPS
+
 using QuantumClifford
 using ITensors, ITensorMPS
 using ProgressMeter
@@ -17,7 +16,7 @@ paulistrings = fill(Z₁, t)
 phases = fill(-π/8, t)
 
 ψ = CAMPS(N) # Initialize CAMPS
-ψ_evo, k = evolve_gencircuit(ψ, t, paulistrings, phases; showprogress = true)
+ψ_evo, k = evolve_deepcliffords(ψ, t, paulistrings, phases; showprogress = true)
 
 println("$(N-k) free qubit(s) left.")
 print("Final MPS:")

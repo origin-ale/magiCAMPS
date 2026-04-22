@@ -1,4 +1,4 @@
-include("algorithm.jl")
+using DisentangleCAMPS
 using Test
 using CliffordMPS
 

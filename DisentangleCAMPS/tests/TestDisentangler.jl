@@ -1,4 +1,4 @@
-include("algorithm.jl")
+using DisentangleCAMPS
 using Test
 
 @testset "apply!(clifford, op)" begin

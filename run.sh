@@ -1,8 +1,6 @@
 clear
 clear
 # First arg is N, second arg is t
-# julia tcircuit.jl 12 12
-# julia tcircuit_scan.jl 12,16,24 50
 
-# julia gencircuit.jl 12 1
-julia gencircuit_scan.jl 12,16,24 50
+# julia SingleEvolution.jl 12 12
+julia EvolvedComplexity.jl 12,16,24 50
