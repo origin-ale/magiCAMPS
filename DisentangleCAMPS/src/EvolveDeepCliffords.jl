@@ -4,9 +4,9 @@ using ITensors, ITensorMPS
 using ProgressMeter
 
 function evolve_deepcliffords(ψ::CAMPS,
-                              t::Int,
-                              paulistrings,
-                              phases;
+                              t::Integer,
+                              paulistrings::Vector{<:PauliOperator},
+                              phases::Vector{<:Real};
                               showprogress = false)
   k = 0
   progressbar = Progress(t; desc = "Evolving…", enabled = showprogress)
