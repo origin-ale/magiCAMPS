@@ -19,7 +19,7 @@ function evolve_bonddim(ψ::CAMPS,
                 showprogress = false)
   k = 0
   s = 0
-  progressthresh = ProgressUnknown(0; desc = "Evolving… t =", enabled = showprogress)
+  progressthresh = ProgressUnknown(0; dt = 0.05, desc = "Evolving… t =", enabled = showprogress)
   while s < length(paulistrings) && bonddim(ψ) < χ
     s += 1
     k = apply!(ψ, k, paulistrings[s], phases[s])
@@ -42,7 +42,8 @@ function evolve(ψ::CAMPS,
   k = 0
   progressbar = Progress(t; desc = "Evolving…", enabled = showprogress)
   for s in 1:t
-    k = apply!(ψ, k, paulistrings[s], phases[s], progressbar)
+    k = apply!(ψ, k, paulistrings[s], phases[s])
+    next!(progressbar)
   end
   return ψ, k
 end
@@ -61,12 +62,13 @@ function evolve_deepcliffords(ψ::CAMPS,
   progressbar = Progress(t; desc = "Evolving…", enabled = showprogress)
   for s in 1:t
     applyQOp!(ψ, QOp(:randCliffCircuit))
-    k = apply!(ψ, k, paulistrings[s], phases[s], progressbar)
+    k = apply!(ψ, k, paulistrings[s], phases[s])
+    next!(progressbar)
   end
   return ψ, k
 end
 
-"```apply!(ψ, k, P, ϕ, progressthresh)```
+"```apply!(ψ, k, P, ϕ)```
 
 Apply the Pauli operator P to the CAMPS ψ with k free qubits, disentangling if possible.
 Modify ψ in-place and return the new number of free qubits."
@@ -88,34 +90,6 @@ function CliffordMPS.apply!(ψ::CAMPS,
     applyGate!(ψ, R)
   elseif nature == :trivial
   end
-  return k
-end
-
-"```apply!(ψ, k, P, ϕ, progressbar)```
-
-Apply the Pauli operator P to the CAMPS ψ with k free qubits, disentangling if possible\
-and advancing the progressbar.
-Modify ψ in-place and return the new number of free qubits."
-function CliffordMPS.apply!(ψ::CAMPS, 
-                            k::Integer, 
-                            P::PauliOperator, 
-                            ϕ::Real, 
-                            progressbar::Progress)
-  N = length(ψ)
-  I = PauliOperator(0x0, fill(false,N), fill(false,N))
-  C = inv(ψ.Cdag)
-
-  nature = paulinature(k, C, P)
-  if nature == :disentanglable
-    ψ.Cdag *= inv(disentangler(k, C, P))
-    addmagicstate!(ψ, k, ϕ)
-    k += 1
-  elseif nature == :logical
-    R = PauliSum([cos(ϕ), sin(ϕ)], Stabilizer([I,P]))
-    applyGate!(ψ, R)
-  elseif nature == :trivial
-  end
-  next!(progressbar)
   return k
 end
 
