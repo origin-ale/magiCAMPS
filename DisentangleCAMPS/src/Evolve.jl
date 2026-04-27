@@ -3,6 +3,32 @@ using QuantumClifford
 using ITensors, ITensorMPS
 using ProgressMeter
 
+bonddim(ψ::CAMPS) = maximum(dim.(linkinds(ψ.mps)))
+
+
+generate_showvalues(χ, bd) = () -> [("Bond dimension (max $χ)", bd)]
+"```evolve_bonddim(ψ, χ, paulis, phases; [showprogress::Bool])```
+
+Evolve the CAMPS ψ along the Pauli rotation circuit\
+with Pauli strings paulis and the given phases, until end or bond dim = χ.
+Return the evolved CAMPS and stopping time."
+function evolve_bonddim(ψ::CAMPS,
+                χ::Integer,
+                paulistrings::Vector{<:PauliOperator},
+                phases::Vector{<:Real};
+                showprogress = false)
+  k = 0
+  s = 0
+  progressthresh = ProgressUnknown(0; desc = "Evolving… t =", enabled = showprogress)
+  while s < length(paulistrings) && bonddim(ψ) < χ
+    s += 1
+    k = apply!(ψ, k, paulistrings[s], phases[s])
+    next!(progressthresh; showvalues = generate_showvalues(χ, bonddim(ψ)))
+  end
+  finish!(progressthresh)
+  return ψ, k, s
+end
+
 "```evolve(ψ, t, paulis, phases; [showprogress::Bool])```
 
 Evolve the CAMPS ψ along the Pauli rotation circuit\
@@ -38,6 +64,31 @@ function evolve_deepcliffords(ψ::CAMPS,
     k = apply!(ψ, k, paulistrings[s], phases[s], progressbar)
   end
   return ψ, k
+end
+
+"```apply!(ψ, k, P, ϕ, progressthresh)```
+
+Apply the Pauli operator P to the CAMPS ψ with k free qubits, disentangling if possible.
+Modify ψ in-place and return the new number of free qubits."
+function CliffordMPS.apply!(ψ::CAMPS, 
+                            k::Integer, 
+                            P::PauliOperator, 
+                            ϕ::Real)
+  N = length(ψ)
+  I = PauliOperator(0x0, fill(false,N), fill(false,N))
+  C = inv(ψ.Cdag)
+
+  nature = paulinature(k, C, P)
+  if nature == :disentanglable
+    ψ.Cdag *= inv(disentangler(k, C, P))
+    addmagicstate!(ψ, k, ϕ)
+    k += 1
+  elseif nature == :logical
+    R = PauliSum([cos(ϕ), sin(ϕ)], Stabilizer([I,P]))
+    applyGate!(ψ, R)
+  elseif nature == :trivial
+  end
+  return k
 end
 
 "```apply!(ψ, k, P, ϕ, progressbar)```
