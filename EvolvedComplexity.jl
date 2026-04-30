@@ -29,9 +29,9 @@ for N in Ns
 		for sample in 1:n_samples
 			ψ = CAMPS(N)
       paulistrings = [PauliOperator(0x0, rand(Bool,N), rand(Bool,N)) for _ in 1:t]
-      phases = 2π*rand(Float64, (t,))
+      angles = 2π*rand(Float64, (t,)) # Rotation angles, ie. 2* exponential phases
 
-			ψ_evo, k = evolve(ψ, t, paulistrings, phases)
+			ψ_evo, k = evolve(ψ, t, paulistrings, angles)
 
 			ee_sum += maximum(eEntropys!(ψ_evo.mps)) / N
 			sre_sum += sEntropy(ψ_evo.mps, N^2; α =2) / N

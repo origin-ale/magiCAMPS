@@ -7,6 +7,7 @@ bonddim(ψ::CAMPS) = maximum(dim.(linkinds(ψ.mps)))
 
 
 generate_showvalues(χ, bd) = () -> [("Bond dimension (max $χ)", bd)]
+
 "```evolve_bonddim(ψ, χ, paulis, phases; [showprogress::Bool])```
 
 Evolve the CAMPS ψ along the Pauli rotation circuit\
@@ -83,7 +84,7 @@ function CliffordMPS.apply!(ψ::CAMPS,
   nature = paulinature(k, C, P)
   if nature == :disentanglable
     ψ.Cdag *= inv(disentangler(k, C, P))
-    addmagicstate!(ψ, k, ϕ)
+    addmagicstate!(ψ, k, ϕ/2) 
     k += 1
   elseif nature == :logical
     R = PauliSum([cos(ϕ), sin(ϕ)], Stabilizer([I,P]))
