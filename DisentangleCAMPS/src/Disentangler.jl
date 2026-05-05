@@ -2,23 +2,30 @@ using QuantumClifford
 
 "After mapping the Pauli string P through the Clifford operator C (ie. P' = C^†PC),
 determine the type of action the result has on the state |m⟩^(⊗k) |0⟩^(⊗(N-k)):
-- ```:disentanglable```, trivial action on the first k qubits and\
-nontrivial on at least one other: action of a phase gate e^iϕP can be\
-incorporated without increasing the MPS bond dimension
-- ```:trivial```, trivial action on all qubits: action of phase gate can be discarded
-- ```:logical```, nontrivial action on one of the first k qubits: MPS bond dimension must increase."
-function paulinature(k::Integer, C::CliffordOperator, P::PauliOperator)
+- ```:disentanglable```, nontrivial action on at least one |0⟩ qubit:\
+action of a phase gate e^iϕP can be incorporated without increasing the MPS bond dimension.
+- ```:trivial```, trivial action on all qubits: action of phase gate can be discarded.
+- ```:logical```, nontrivial action on |m⟩ qubits only: MPS bond dimension must increase."
+function paulinature(free_qubits::Vector{<:Integer}, C::CliffordOperator, P::PauliOperator)
   n = length(P)
   Q = apply(P, C)
   XQ = xbit(Q)
   ZQ = zbit(Q)
-  if XQ[k+1:n] != zeros(n-k)
+  qubits = collect(range(1,n))
+  magic_qubits = setdiff(qubits, free_qubits)
+  if any(XQ[i] != 0 for i in free_qubits)
     return :disentanglable 
-  elseif ZQ[1:k] == zeros(k) && XQ[1:k] == zeros(k)
+  elseif all(ZQ[i] == 0 for i in magic_qubits) && all(XQ[i] == 0 for i in magic_qubits)
     return :trivial
   else 
     return :logical
   end
+end
+
+function paulinature(k::Integer, C::CliffordOperator, P::PauliOperator) 
+  N = length(P)
+  free = collect(range(k+1, N))
+  return paulinature(free, C, P)
 end
 
 # === OVERWRITES CliffordMPS ===
@@ -37,33 +44,30 @@ function apply(P::PauliOperator, C::CliffordOperator)
   return P_tableau[1]
 end
 
-"Given a Pauli string P, a Clifford operator C and the number k of free qubits,\
+"Given a Pauli string P, a Clifford operator C and the free qubits,\
 build an analytical disentangling Clifford circuit."
-function disentangler(k::Integer, C::CliffordOperator, P::PauliOperator)
+function disentangler(free_qubits::Vector{<:Integer}, C::CliffordOperator, P::PauliOperator)
   Q = apply(P, C)
-  i = findfirstfreeXY(Q, k)
+  i = findfirstfreeXY(Q, free_qubits)
+  # println("First free qubit is $i")
   Dtot = one(CliffordOperator, length(Q))
 
-  if i != k+1
-    Q, swap = swapqubits(Q, i, k+1)
-    apply!(Dtot, swap)
-    i = k+1
-  end
   if zbit(Q)[i]
     Q, phase = reducetoX(Q, i)
     apply!(Dtot, phase)
+    # println("Reduced $i")
   end
+
   Dmain = build_D(Q, i)
   apply!(Dtot, Dmain)
 
-  return Dtot
+  return Dtot, i
 end
 
-"Routine for ```disentangler``` to use if the first free qubit with nontrivial action is not number k+1"
-function swapqubits(P::PauliOperator, i::Integer, j::Integer)
-  swapij = one(CliffordOperator, length(P))
-  apply!(swapij, tSWAP, [i,j])
-  return apply(P, swapij), swapij
+function disentangler(k::Integer, C::CliffordOperator, P::PauliOperator)
+  N = length(P)
+  free = collect(range(k+1, N))
+  return disentangler(free, C, P)
 end
 
 "Routine for ```disentangler``` to use if the first free qubit with nontrivial action is acted on by a Y"
@@ -75,13 +79,13 @@ function reducetoX(P::PauliOperator, i::Integer)
   return apply(P, phasei), phasei
 end
 
-findfirstfreeXY(P::PauliOperator, k::Integer) = findfirst(xbit(P)[k+1:end]) + k
+findfirstfreeXY(P::PauliOperator, free_qubits::Vector{<:Integer}) = free_qubits[findfirst(i -> (xbit(P)[i] == 1), free_qubits)]
 
 "Routine for ```disentangler``` to use to build the disentangling circuit from Liu and Clark (2025)."
 function build_D(Q::PauliOperator, i::Integer)
   tCX = tCNOT
   tCY = (tId1 ⊗ tPhase) * tCNOT * inv(tId1 ⊗ tPhase)
-  tCZ = (tId1 ⊗ tHadamard) * tCNOT * (tId1 ⊗ tHadamard)
+  tCZ = (tId1 ⊗ tHadamard) * tCNOT * inv(tId1 ⊗ tHadamard)
 
   D = one(CliffordOperator, length(Q))
 
@@ -89,10 +93,13 @@ function build_D(Q::PauliOperator, i::Integer)
     if j != i
       if Q[j] == (true, false) # X
         apply!(D, tCX, [i, j])
+        # println("CX on $i, $j")
       elseif Q[j] == (true, true) # Y
         apply!(D, tCY, [i, j])
+        # println("CY on $i, $j")
       elseif Q[j] == (false, true) # Z
         apply!(D, tCZ, [i, j])
+        # println("CZ on $i, $j")
       end
     end
   end

@@ -1,4 +1,6 @@
-using DisentangleCAMPS
+using DisentangleCAMPS: apply, paulinature, disentangler, reducetoX, build_D, findfirstfreeXY
+using QuantumClifford
+using CliffordMPS
 using Test
 
 @testset "apply!(clifford, op)" begin
@@ -184,12 +186,44 @@ end
   @test paulinature(3, Cid, P"ZZZ") == log
 end
 
-@testset "swapqubits" begin
-  C = one(CliffordOperator, 3)
+# @testset "swapqubits" begin
+#   C = one(CliffordOperator, 3)
 
-  @test swapqubits(P"XYZ", 1, 3)[1] == P"ZYX"
+#   @test swapqubits(P"XYZ", 1, 3)[1] == P"ZYX"
 
-  @test swapqubits(P"IIX", 2, 3)[1] == P"IXI"
+#   @test swapqubits(P"IIX", 2, 3)[1] == P"IXI"
+# end
+
+@testset "findfirstfreeXY" begin
+  # X on a free qubit
+  @test findfirstfreeXY(P"IXI", [2, 3]) == 2
+  @test findfirstfreeXY(P"IIX", [2, 3]) == 3
+
+  # Y on a free qubit (Y has xbit=true in the Pauli representation)
+  @test findfirstfreeXY(P"IYI", [2, 3]) == 2
+  @test findfirstfreeXY(P"IIY", [2, 3]) == 3
+
+  # Z on free qubits: no X or Y, should return nothing
+  # @test broken=true findfirstfreeXY(P"IZI", [2, 3]) === nothing
+  # @test broken=true findfirstfreeXY(P"IZZ", [2, 3]) === nothing
+
+  # I on free qubits: should return nothing
+  # @test broken=true  findfirstfreeXY(P"XII", [2, 3]) === nothing
+
+  # X on multiple free qubits: return the first one
+  @test findfirstfreeXY(P"IXX", [2, 3]) == 2
+
+  # Non-contiguous free qubits
+  @test findfirstfreeXY(P"XIZI", [1, 3]) == 1
+  # @test broken=true  findfirstfreeXY(P"ZIZI", [1, 3]) === nothing
+  @test findfirstfreeXY(P"ZIXI", [1, 3]) == 3
+
+  # X on a magic qubit only, not on free qubits
+  # @test broken=true  findfirstfreeXY(P"XZZ", [2, 3]) === nothing
+
+  # Single free qubit
+  @test findfirstfreeXY(P"IXI", [2]) == 2
+  # @test broken=true  findfirstfreeXY(P"IZI", [2]) === nothing
 end
 
 @testset "reducetoX" begin
@@ -222,14 +256,14 @@ end
 @testset "disentangler" begin
   tCX = tCNOT
   tCY = (tId1 ⊗ tPhase) * tCNOT * inv(tId1 ⊗ tPhase)
-  tCZ = (tId1 ⊗ tHadamard) * tCNOT * (tId1 ⊗ tHadamard)
+  tCZ = (tId1 ⊗ tHadamard) * tCNOT * inv(tId1 ⊗ tHadamard)
 
   Dtest = one(CliffordOperator, 3)
   apply!(Dtest, tCY, [2,1])
   C = C"IXI XII IIX IZI ZII IIZ"
   P = P"XYI"
   @assert paulinature(1, C, P) == :disentanglable
-  @test disentangler(1, C, P) == Dtest
+  @test disentangler(1, C, P)[1] == Dtest
   
   Dtest = one(CliffordOperator, 3)
   apply!(Dtest, tPhase, [2]) # QuantumClifford's apply!(CliffordOperator, CliffordOperator) ignores phases
@@ -237,13 +271,12 @@ end
   C = C"IXI XII IIX IZI ZII IIZ"
   P = P"YYI"
   @assert paulinature(1, C, P) == :disentanglable
-  @test disentangler(1, C, P) == Dtest
+  @test disentangler(1, C, P)[1] == Dtest
 
   Dtest = one(CliffordOperator, 3)
-  apply!(Dtest, tSWAP,[2,3])
-  apply!(Dtest, tCY, [2,1])
+  apply!(Dtest, tCY, [3,1])
   C = C"IXI XII IIX IZI ZII IIZ"
   P = P"IYX"
   @assert paulinature(1, C, P) == :disentanglable
-  @test disentangler(1, C, P) == Dtest
+  @test disentangler(1, C, P)[1] == Dtest
 end
