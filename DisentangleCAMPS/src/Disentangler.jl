@@ -48,20 +48,19 @@ end
 build an analytical disentangling Clifford circuit."
 function disentangler(free_qubits::Vector{<:Integer}, C::CliffordOperator, P::PauliOperator)
   Q = apply(P, C)
+  # @show Q
   i = findfirstfreeXY(Q, free_qubits)
-  # println("First free qubit is $i")
+  # println("First free qubit with an X/Y is $i")
   Dtot = one(CliffordOperator, length(Q))
-
-  if zbit(Q)[i]
-    Q, phase = reducetoX(Q, i)
-    apply!(Dtot, phase)
-    # println("Reduced $i")
-  end
+  
+  op = zbit(Q)[i] ? "Y" : "X"
+  sign = (Q.phase[1] == 0x00) ? +1 : -1
+  # @show Q,sign
 
   Dmain = build_D(Q, i)
   apply!(Dtot, Dmain)
 
-  return Dtot, i
+  return Dtot, i, op, sign
 end
 
 function disentangler(k::Integer, C::CliffordOperator, P::PauliOperator)
@@ -85,7 +84,7 @@ findfirstfreeXY(P::PauliOperator, free_qubits::Vector{<:Integer}) = free_qubits[
 function build_D(Q::PauliOperator, i::Integer)
   tCX = tCNOT
   tCY = (tId1 ⊗ tPhase) * tCNOT * inv(tId1 ⊗ tPhase)
-  tCZ = (tId1 ⊗ tHadamard) * tCNOT * inv(tId1 ⊗ tHadamard)
+  tCZ = (tId1 ⊗ tHadamard) * tCNOT * (tId1 ⊗ tHadamard)
 
   D = one(CliffordOperator, length(Q))
 

@@ -83,32 +83,35 @@ function CliffordMPS.apply!(ψ::CAMPS,
 
   nature = paulinature(free_qubits, C, P)
   if nature == :disentanglable
-    new_Cdag, i = disentangler(free_qubits, C, P)
-    ψ.Cdag *= inv(new_Cdag)
-    addmagicstate!(ψ, i, ϕ/2) 
-    # println("Disentangled")
+    new_Cdag, i, op, sign = disentangler(free_qubits, C, P)
+    ψ.Cdag = inv(new_Cdag) * ψ.Cdag
+    addmagicstate!(ψ, i, op, sign * ϕ/2) 
     deleteat!(free_qubits, findfirst(x -> x == i, free_qubits))
+    # println("Disentangled; free qubits left $free_qubits")
+    C = inv(ψ.Cdag)
+    # @show C
   elseif nature == :logical
-    R = PauliSum([cos(ϕ/2), sin(ϕ/2)], Stabilizer([I,P]))
+    R = PauliSum([cos(ϕ/2), -im * sin(ϕ/2)], Stabilizer([I,P]))
     applyGate!(ψ, R)
-    # println("Applied as MPO")
+    # println("Applied MPO $R")
   elseif nature == :trivial
     # println("Trivial")
   end
-  # C = inv(ψ.Cdag)
-  # @show C
   return free_qubits
 end
 
-"```addmagicstate!(ψ, k, phase)```
+"""```addmagicstate!(ψ, k, phase)```
 
-Turn ψ's given qubit from |0⟩ to the Liu and Clark (2025) magic state with given phase"
-function addmagicstate!(ψ::CAMPS, i::Integer, phase::Real)
+Turn ψ's given qubit from |0⟩ to the Liu and Clark (2025) magic state for given op \
+(```"X"``` or ```"Y"```) with coefficients sin(phase) and cos(phase)"""
+function addmagicstate!(ψ::CAMPS, i::Integer, op, phase::Real)
   magifier_os = OpSum()
   magifier_os += cos(phase), "Id", i
-  magifier_os += -im * sin(phase), "X", i
+  prefac = (op == "X") ? -im : 1
+  magifier_os += prefac * sin(phase), "X", i # |0⟩ ↦ |1⟩, with proper prefactor
   sites = siteinds(ψ.mps)
   magifier = MPO(magifier_os, sites)
   ψ.mps = ITensors.apply(magifier, ψ.mps)
+  # println("Qubit $i made magical by $op")
   return nothing
 end
