@@ -56,7 +56,10 @@ function disentangler(free_qubits::Vector{<:Integer}, C::CliffordOperator, P::Pa
   op = zbit(Q)[i] ? "Y" : "X"
   sign = (Q.phase[1] == 0x00) ? +1 : -1
   # @show Q,sign
-
+  if zbit(Q)[i]
+    Q, phase = reducetoX(Q, i)
+    apply!(Dtot, phase)
+  end
   Dmain = build_D(Q, i)
   apply!(Dtot, Dmain)
 

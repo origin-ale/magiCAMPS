@@ -85,7 +85,7 @@ function CliffordMPS.apply!(ψ::CAMPS,
   if nature == :disentanglable
     new_Cdag, i, op, sign = disentangler(free_qubits, C, P)
     ψ.Cdag = inv(new_Cdag) * ψ.Cdag
-    addmagicstate!(ψ, i, op, sign * ϕ/2) 
+    addmagicstate!(ψ, i, op, ϕ/2) 
     deleteat!(free_qubits, findfirst(x -> x == i, free_qubits))
     # println("Disentangled; free qubits left $free_qubits")
     C = inv(ψ.Cdag)
@@ -108,7 +108,7 @@ function addmagicstate!(ψ::CAMPS, i::Integer, op, phase::Real)
   magifier_os = OpSum()
   magifier_os += cos(phase), "Id", i
   prefac = (op == "X") ? -im : 1
-  magifier_os += prefac * sin(phase), "X", i # |0⟩ ↦ |1⟩, with proper prefactor
+  magifier_os += -im * sin(phase), "X", i # |0⟩ ↦ |1⟩, with proper prefactor
   sites = siteinds(ψ.mps)
   magifier = MPO(magifier_os, sites)
   ψ.mps = ITensors.apply(magifier, ψ.mps)
