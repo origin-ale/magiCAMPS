@@ -1,4 +1,4 @@
-using DisentangleCAMPS: apply, paulinature, disentangler, reducetoX, build_D, findfirstfreeXY
+using DisentangleCAMPS: apply, paulinature, disentangler, reducetoX, build_D, findfirstfreeXY, swapqubits
 using QuantumClifford
 using CliffordMPS
 using Test
@@ -186,44 +186,32 @@ end
   @test paulinature(3, Cid, P"ZZZ") == log
 end
 
-# @testset "swapqubits" begin
-#   C = one(CliffordOperator, 3)
+@testset "swapqubits" begin
+  C = one(CliffordOperator, 3)
 
-#   @test swapqubits(P"XYZ", 1, 3)[1] == P"ZYX"
+  @test swapqubits(P"XYZ", 1, 3)[1] == P"ZYX"
 
-#   @test swapqubits(P"IIX", 2, 3)[1] == P"IXI"
-# end
+  @test swapqubits(P"IIX", 2, 3)[1] == P"IXI"
+end
 
 @testset "findfirstfreeXY" begin
-  # X on a free qubit
-  @test findfirstfreeXY(P"IXI", [2, 3]) == 2
-  @test findfirstfreeXY(P"IIX", [2, 3]) == 3
+  # X on a free qubit (k = number of magic qubits at the start)
+  @test findfirstfreeXY(P"IXI", 1) == 2
+  @test findfirstfreeXY(P"IIX", 2) == 3
 
   # Y on a free qubit (Y has xbit=true in the Pauli representation)
-  @test findfirstfreeXY(P"IYI", [2, 3]) == 2
-  @test findfirstfreeXY(P"IIY", [2, 3]) == 3
-
-  # Z on free qubits: no X or Y, should return nothing
-  # @test broken=true findfirstfreeXY(P"IZI", [2, 3]) === nothing
-  # @test broken=true findfirstfreeXY(P"IZZ", [2, 3]) === nothing
-
-  # I on free qubits: should return nothing
-  # @test broken=true  findfirstfreeXY(P"XII", [2, 3]) === nothing
+  @test findfirstfreeXY(P"IYI", 1) == 2
+  @test findfirstfreeXY(P"IIY", 2) == 3
 
   # X on multiple free qubits: return the first one
-  @test findfirstfreeXY(P"IXX", [2, 3]) == 2
+  @test findfirstfreeXY(P"IXX", 1) == 2
 
-  # Non-contiguous free qubits
-  @test findfirstfreeXY(P"XIZI", [1, 3]) == 1
-  # @test broken=true  findfirstfreeXY(P"ZIZI", [1, 3]) === nothing
-  @test findfirstfreeXY(P"ZIXI", [1, 3]) == 3
-
-  # X on a magic qubit only, not on free qubits
-  # @test broken=true  findfirstfreeXY(P"XZZ", [2, 3]) === nothing
+  # k = 0: scan from qubit 1
+  @test findfirstfreeXY(P"XIZI", 0) == 1
+  @test findfirstfreeXY(P"ZIXI", 2) == 3
 
   # Single free qubit
-  @test findfirstfreeXY(P"IXI", [2]) == 2
-  # @test broken=true  findfirstfreeXY(P"IZI", [2]) === nothing
+  @test findfirstfreeXY(P"IXI", 1) == 2
 end
 
 @testset "reducetoX" begin
@@ -232,7 +220,7 @@ end
   @test reduced == P"XXZ"
   apply!(C, phase)
   @test C == C"XII IYI IIX ZII IZI IIZ" # apply! for Cliffords ignores phase
-  
+
   C = one(CliffordOperator, 3)
   reduced, phase = reducetoX(P"YYY", 1)
   @test reduced == P"XYY"
@@ -256,7 +244,7 @@ end
 @testset "disentangler" begin
   tCX = tCNOT
   tCY = (tId1 ⊗ tPhase) * tCNOT * inv(tId1 ⊗ tPhase)
-  tCZ = (tId1 ⊗ tHadamard) * tCNOT * inv(tId1 ⊗ tHadamard)
+  tCZ = (tId1 ⊗ tHadamard) * tCNOT * (tId1 ⊗ tHadamard)
 
   Dtest = one(CliffordOperator, 3)
   apply!(Dtest, tCY, [2,1])
@@ -264,7 +252,7 @@ end
   P = P"XYI"
   @assert paulinature(1, C, P) == :disentanglable
   @test disentangler(1, C, P)[1] == Dtest
-  
+
   Dtest = one(CliffordOperator, 3)
   apply!(Dtest, tPhase, [2]) # QuantumClifford's apply!(CliffordOperator, CliffordOperator) ignores phases
   apply!(Dtest, tCY, [2,1])
@@ -273,6 +261,7 @@ end
   @assert paulinature(1, C, P) == :disentanglable
   @test disentangler(1, C, P)[1] == Dtest
 
+  # No swap in disentangler: build_D keyed at i = 3 (the original free X position).
   Dtest = one(CliffordOperator, 3)
   apply!(Dtest, tCY, [3,1])
   C = C"IXI XII IIX IZI ZII IIZ"

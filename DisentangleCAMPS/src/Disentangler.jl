@@ -2,30 +2,23 @@ using QuantumClifford
 
 "After mapping the Pauli string P through the Clifford operator C (ie. P' = C^†PC),
 determine the type of action the result has on the state |m⟩^(⊗k) |0⟩^(⊗(N-k)):
-- ```:disentanglable```, nontrivial action on at least one |0⟩ qubit:\
-action of a phase gate e^iϕP can be incorporated without increasing the MPS bond dimension.
-- ```:trivial```, trivial action on all qubits: action of phase gate can be discarded.
-- ```:logical```, nontrivial action on |m⟩ qubits only: MPS bond dimension must increase."
-function paulinature(free_qubits::Vector{<:Integer}, C::CliffordOperator, P::PauliOperator)
+- ```:disentanglable```, trivial action on the first k qubits and\
+nontrivial on at least one other: action of a phase gate e^iϕP can be\
+incorporated without increasing the MPS bond dimension
+- ```:trivial```, trivial action on all qubits: action of phase gate can be discarded
+- ```:logical```, nontrivial action on one of the first k qubits: MPS bond dimension must increase."
+function paulinature(k::Integer, C::CliffordOperator, P::PauliOperator)
   n = length(P)
   Q = apply(P, C)
   XQ = xbit(Q)
   ZQ = zbit(Q)
-  qubits = collect(range(1,n))
-  magic_qubits = setdiff(qubits, free_qubits)
-  if any(XQ[i] != 0 for i in free_qubits)
-    return :disentanglable 
-  elseif all(ZQ[i] == 0 for i in magic_qubits) && all(XQ[i] == 0 for i in magic_qubits)
+  if XQ[k+1:n] != zeros(n-k)
+    return :disentanglable
+  elseif ZQ[1:k] == zeros(k) && XQ[1:k] == zeros(k)
     return :trivial
-  else 
+  else
     return :logical
   end
-end
-
-function paulinature(k::Integer, C::CliffordOperator, P::PauliOperator) 
-  N = length(P)
-  free = collect(range(k+1, N))
-  return paulinature(free, C, P)
 end
 
 # === OVERWRITES CliffordMPS ===
@@ -38,50 +31,59 @@ end
 
 "Map a Pauli string P through a Clifford operator C, ie. compute C^†PC.\
 Warning: not an in-place method!"
-function apply(P::PauliOperator, C::CliffordOperator)
+function apply(P::PauliOperator, C::CliffordOperator) # CHECK
   P_tableau = QuantumClifford.Tableau([P])
   apply!(Stabilizer(P_tableau), C)
   return P_tableau[1]
 end
 
-"Given a Pauli string P, a Clifford operator C and the free qubits,\
+"Given a Pauli string P, a Clifford operator C and the number k of free qubits,\
 build an analytical disentangling Clifford circuit."
-function disentangler(free_qubits::Vector{<:Integer}, C::CliffordOperator, P::PauliOperator)
+function disentangler(k::Integer, C::CliffordOperator, P::PauliOperator)
   Q = apply(P, C)
-  # @show Q
-  i = findfirstfreeXY(Q, free_qubits)
-  # println("First free qubit with an X/Y is $i")
+  # println("Disentangling Q = $Q, k = $k")
+  sign = (Q.phase[1] == 0x0) ? +1 : -1
+  # @show sign
+  i = findfirstfreeXY(Q, k)
+  is_y = zbit(Q)[i]
   Dtot = one(CliffordOperator, length(Q))
   
-  op = zbit(Q)[i] ? "Y" : "X"
-  sign = (Q.phase[1] == 0x00) ? +1 : -1
-  # @show Q,sign
-  if zbit(Q)[i]
+  if is_y
     Q, phase = reducetoX(Q, i)
-    apply!(Dtot, phase)
+    apply_right!(Dtot, phase)
+    # println("Phase on $(i): Q = $Q")
   end
-  Dmain = build_D(Q, i)
-  apply!(Dtot, Dmain)
+  
+  if i != k+1
+    Q, swap = swapqubits(Q, i, k+1)
+    apply_right!(Dtot, swap)
+    # println("Swap $i and $(k+1): Q = $Q")
+  end
+  
+  # print("Disentangler: ")
+  Dmain = build_D(Q, k+1)
+  apply_right!(Dtot, Dmain)
 
-  return Dtot, i, op, sign
+  return Dtot, sign
 end
 
-function disentangler(k::Integer, C::CliffordOperator, P::PauliOperator)
-  N = length(P)
-  free = collect(range(k+1, N))
-  return disentangler(free, C, P)
+disentangler(k::Integer, P::PauliOperator) = disentangler(k, one(CliffordOperator, length(P)), P)
+
+"Routine for ```disentangler``` to use if the first free qubit with nontrivial action is not number k+1"
+function swapqubits(P::PauliOperator, i::Integer, j::Integer)
+  swapij = one(CliffordOperator, length(P))
+  apply!(swapij, tSWAP, [i,j])
+  return apply(P, swapij), swapij
 end
 
 "Routine for ```disentangler``` to use if the first free qubit with nontrivial action is acted on by a Y"
 function reducetoX(P::PauliOperator, i::Integer)
   phasei = one(CliffordOperator, length(P))
   apply!(phasei, tPhase, [i]) # Use 3 phase gates s.t. Y -> X instead of -X
-  apply!(phasei, tPhase, [i])
-  apply!(phasei, tPhase, [i])
-  return apply(P, phasei), phasei
+  return apply(P, inv(phasei)), phasei
 end
 
-findfirstfreeXY(P::PauliOperator, free_qubits::Vector{<:Integer}) = free_qubits[findfirst(i -> (xbit(P)[i] == 1), free_qubits)]
+findfirstfreeXY(P::PauliOperator, k::Integer) = findfirst(xbit(P)[k+1:end]) + k
 
 "Routine for ```disentangler``` to use to build the disentangling circuit from Liu and Clark (2025)."
 function build_D(Q::PauliOperator, i::Integer)
@@ -95,15 +97,16 @@ function build_D(Q::PauliOperator, i::Integer)
     if j != i
       if Q[j] == (true, false) # X
         apply!(D, tCX, [i, j])
-        # println("CX on $i, $j")
+        # print("CX $i -> $j ")
       elseif Q[j] == (true, true) # Y
         apply!(D, tCY, [i, j])
-        # println("CY on $i, $j")
+        # print("CY $i -> $j ")
       elseif Q[j] == (false, true) # Z
         apply!(D, tCZ, [i, j])
-        # println("CZ on $i, $j")
+        # print("CZ $i -> $j ")
       end
     end
   end
+  # println("")
   return D
 end

@@ -18,16 +18,16 @@ function evolve_bonddim(ψ::CAMPS,
                 paulistrings::Vector{<:PauliOperator},
                 phases::Vector{<:Real};
                 showprogress = false)
-  free_qubits = collect(range(1,length(ψ)))
+  k = 0
   s = 0
   progressthresh = ProgressUnknown(0; dt = 0.05, desc = "Evolving CAMPS… t =", enabled = showprogress)
   while s < length(paulistrings) && bonddim(ψ) < χ
     s += 1
-    free_qubits = apply!(ψ, free_qubits, paulistrings[s], phases[s])
+    k = apply!(ψ, k, paulistrings[s], phases[s])
     next!(progressthresh; showvalues = generate_showvalues(χ, bonddim(ψ)))
   end
   finish!(progressthresh)
-  return ψ, free_qubits, s
+  return ψ, k, s
 end
 
 "```evolve(ψ, t, paulis, phases; [showprogress::Bool])```
@@ -40,13 +40,13 @@ function evolve(ψ::CAMPS,
                 paulistrings::Vector{<:PauliOperator},
                 phases::Vector{<:Real};
                 showprogress = false)
-  free_qubits = collect(range(1,length(ψ)))
+  k = 0
   progressbar = Progress(t; desc = "Evolving…", enabled = showprogress)
   for s in 1:t
-    free_qubits = apply!(ψ, free_qubits, paulistrings[s], phases[s])
+    k = apply!(ψ, k, paulistrings[s], phases[s])
     next!(progressbar)
   end
-  return ψ, free_qubits
+  return ψ, k
 end
 
 "```evolve_deepcliffords(ψ, t, paulis, phases; [showprogress::Bool])```
@@ -73,45 +73,39 @@ end
 
 Apply the Pauli operator P to the CAMPS ψ with k free qubits, disentangling if possible.
 Modify ψ in-place and return the new number of free qubits."
-function CliffordMPS.apply!(ψ::CAMPS, 
-                            free_qubits::Vector{<:Integer}, 
-                            P::PauliOperator, 
+function CliffordMPS.apply!(ψ::CAMPS,
+                            k::Integer,
+                            P::PauliOperator,
                             ϕ::Real)
   N = length(ψ)
   I = PauliOperator(0x0, fill(false,N), fill(false,N))
-  C = inv(ψ.Cdag)
+  C = (ψ.Cdag) # REMOVE INV FOR CORRECT
 
-  nature = paulinature(free_qubits, C, P)
+  nature = paulinature(k, C, P)
   if nature == :disentanglable
-    new_Cdag, i, op, sign = disentangler(free_qubits, C, P)
-    ψ.Cdag = inv(new_Cdag) * ψ.Cdag
-    addmagicstate!(ψ, i, op, ϕ/2) 
-    deleteat!(free_qubits, findfirst(x -> x == i, free_qubits))
-    # println("Disentangled; free qubits left $free_qubits")
-    C = inv(ψ.Cdag)
-    # @show C
+    D, sign = disentangler(k, C, P)
+    ψ.Cdag = inv(D) * ψ.Cdag
+    addmagicstate!(ψ, k, sign*ϕ/2)
+    k += 1
   elseif nature == :logical
     R = PauliSum([cos(ϕ/2), -im * sin(ϕ/2)], Stabilizer([I,P]))
     applyGate!(ψ, R)
-    # println("Applied MPO $R")
   elseif nature == :trivial
-    # println("Trivial")
   end
-  return free_qubits
+  # @show inv(ψ.Cdag)
+  # @show ITensorMPS.expect(ψ.mps,"Y")
+  return k
 end
 
-"""```addmagicstate!(ψ, k, phase)```
+"```addmagicstate!(ψ, k, phase)```
 
-Turn ψ's given qubit from |0⟩ to the Liu and Clark (2025) magic state for given op \
-(```"X"``` or ```"Y"```) with coefficients sin(phase) and cos(phase)"""
-function addmagicstate!(ψ::CAMPS, i::Integer, op, phase::Real)
+Turn ψ's (k+1)th qubit from |0⟩ to the Liu and Clark (2025) magic state with given phase"
+function addmagicstate!(ψ::CAMPS, k::Integer, phase::Real)
   magifier_os = OpSum()
-  magifier_os += cos(phase), "Id", i
-  prefac = (op == "X") ? -im : 1
-  magifier_os += -im * sin(phase), "X", i # |0⟩ ↦ |1⟩, with proper prefactor
+  magifier_os += cos(phase), "Id", k+1
+  magifier_os += -im * sin(phase), "X", k+1
   sites = siteinds(ψ.mps)
   magifier = MPO(magifier_os, sites)
   ψ.mps = ITensors.apply(magifier, ψ.mps)
-  # println("Qubit $i made magical by $op")
   return nothing
 end
