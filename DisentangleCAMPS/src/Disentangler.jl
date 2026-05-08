@@ -23,7 +23,7 @@ end
 
 "Map a Pauli string P through a Clifford operator C, ie. compute C^†PC.\
 Warning: not an in-place method!"
-function apply(P::PauliOperator, C::CliffordOperator) # WRONG
+function apply(P::PauliOperator, C::CliffordOperator)
   P_tableau = QuantumClifford.Tableau([P])
   apply!(Stabilizer(P_tableau), inv(C))
   return P_tableau[1]
