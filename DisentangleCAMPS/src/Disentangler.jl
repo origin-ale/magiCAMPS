@@ -33,9 +33,7 @@ end
 build an analytical disentangling Clifford circuit."
 function disentangler(k::Integer, C::CliffordOperator, P::PauliOperator)
   Q = apply(P, C)
-  # println("Disentangling Q = $Q, k = $k")
   sign = (Q.phase[1] == 0x0) ? +1 : -1
-  # @show sign
   i = findfirstfreeXY(Q, k)
   is_y = zbit(Q)[i]
   Dtot = one(CliffordOperator, length(Q))
@@ -43,16 +41,13 @@ function disentangler(k::Integer, C::CliffordOperator, P::PauliOperator)
   if is_y
     Q, phase = reducetoX(Q, i)
     apply_right!(Dtot, phase)
-    # println("Phase on $(i): Q = $Q")
   end
   
   if i != k+1
     Q, swap = swapqubits(Q, i, k+1)
     apply_right!(Dtot, swap)
-    # println("Swap $i and $(k+1): Q = $Q")
   end
   
-  # print("Disentangler: ")
   Dmain = build_D(Q, k+1)
   apply_right!(Dtot, Dmain)
 
@@ -89,13 +84,10 @@ function build_D(Q::PauliOperator, i::Integer)
     if j != i
       if Q[j] == (true, false) # X
         apply!(D, tCX, [i, j])
-        # print("CX $i -> $j ")
       elseif Q[j] == (true, true) # Y
         apply!(D, tCY, [i, j])
-        # print("CY $i -> $j ")
       elseif Q[j] == (false, true) # Z
         apply!(D, tCZ, [i, j])
-        # print("CZ $i -> $j ")
       end
     end
   end

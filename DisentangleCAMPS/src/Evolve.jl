@@ -5,7 +5,6 @@ using ProgressMeter
 
 bonddim(ψ::CAMPS) = maximum(dim.(linkinds(ψ.mps)))
 
-
 generate_showvalues(χ, bd) = () -> [("Bond dimension (max $χ)", bd)]
 
 "```evolve_bonddim(ψ, χ, paulis, phases; [showprogress::Bool])```
@@ -92,8 +91,6 @@ function CliffordMPS.apply!(ψ::CAMPS,
     applyGate!(ψ, R)
   elseif nature == :trivial
   end
-  # @show inv(ψ.Cdag)
-  # @show ITensorMPS.expect(ψ.mps,"Y")
   return k
 end
 
