@@ -79,7 +79,7 @@ function CliffordMPS.apply!(ψ::CAMPS,
                             ϕ::Real)
   N = length(ψ)
   I = PauliOperator(0x0, fill(false,N), fill(false,N))
-  C = (ψ.Cdag) # REMOVE INV FOR CORRECT
+  C = inv(ψ.Cdag)
 
   nature = paulinature(k, C, P)
   if nature == :disentanglable
