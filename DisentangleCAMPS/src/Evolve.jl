@@ -85,10 +85,10 @@ function CliffordMPS.apply!(ψ::CAMPS,
   if nature == :disentanglable
     D, sign = disentangler(k, C, P)
     ψ.Cdag = inv(D) * ψ.Cdag
-    addmagicstate!(ψ, k, sign*ϕ/2)
+    addmagicstate!(ψ, k, sign*ϕ)
     k += 1
   elseif nature == :logical
-    R = PauliSum([cos(ϕ/2), -im * sin(ϕ/2)], Stabilizer([I,P]))
+    R = PauliSum([cos(ϕ), im * sin(ϕ)], Stabilizer([I,P]))
     applyGate!(ψ, R)
   elseif nature == :trivial
   end
@@ -103,7 +103,7 @@ Turn ψ's (k+1)th qubit from |0⟩ to the Liu and Clark (2025) magic state with 
 function addmagicstate!(ψ::CAMPS, k::Integer, phase::Real)
   magifier_os = OpSum()
   magifier_os += cos(phase), "Id", k+1
-  magifier_os += -im * sin(phase), "X", k+1
+  magifier_os += im * sin(phase), "X", k+1
   sites = siteinds(ψ.mps)
   magifier = MPO(magifier_os, sites)
   ψ.mps = ITensors.apply(magifier, ψ.mps)
