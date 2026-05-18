@@ -3,6 +3,8 @@ using QuantumClifford
 using ITensors, ITensorMPS
 using ProgressMeter
 
+using Revise
+
 bonddim(ψ::CAMPS) = maximum(dim.(linkinds(ψ.mps)))
 
 generate_showvalues(χ, bd) = () -> [("Bond dimension (max $χ)", bd)]
@@ -80,6 +82,20 @@ function CliffordMPS.apply!(ψ::CAMPS,
   I = PauliOperator(0x0, fill(false,N), fill(false,N))
   C = inv(ψ.Cdag)
 
+  aϕ = abs(ϕ)
+  if (isapprox(aϕ, 0; atol = 1e-6) || aϕ ≈ π)
+    return k
+  elseif aϕ ≈ π/4
+    apply_pi4_cliff!(ψ, P)
+    return k
+  elseif aϕ ≈ 3π/4
+    apply_3pi4_cliff!(ψ, P)
+    return k
+  elseif aϕ ≈ π/2
+    ψ.Cdag = inv(CliffordOperator(P)) * ψ.Cdag
+    return k
+  end
+
   nature = paulinature(k, C, P)
   if nature == :disentanglable
     D, sign = disentangler(k, C, P)
@@ -93,6 +109,20 @@ function CliffordMPS.apply!(ψ::CAMPS,
   end
   return k
 end
+
+function apply_pi4_cliff!(ψ::CAMPS, P)
+  N = length(ψ)
+  op = one(CliffordOperator, N)
+  for i in 1:2N
+    Q = one(CliffordOperator, N)[i]
+    if Bool(comm(P, Q)) # comm(P,Q) == 0x1 if P and Q anticommute
+      op[i] = im * P * Q
+    end
+  end
+  ψ.Cdag = ψ.Cdag * inv(op)
+end
+
+apply_3pi4_cliff!(ψ::CAMPS, P) = apply_pi4_cliff!(ψ, P)
 
 "```addmagicstate!(ψ, k, phase)```
 
