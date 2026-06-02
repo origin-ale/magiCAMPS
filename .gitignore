@@ -2,3 +2,5 @@ dmrgCliffordMPS
 .vscode
 setup_env.jl
 output
+.DS_Store
+DisentangleCAMPS/.DS_Store
